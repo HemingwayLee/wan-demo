@@ -1,0 +1,12 @@
+# The dev compose runs on the prebuilt video2text-demo-backend image, which already has these.
+# Listed for reference, or for building an image of this project's own.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+pydantic-settings==2.7.0
+python-multipart>=0.0.18
+requests>=2.32,<3
+websockets>=13
+pillow==11.3.0
+numpy>=2

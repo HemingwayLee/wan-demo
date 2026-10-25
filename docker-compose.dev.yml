@@ -1,0 +1,65 @@
+# Dev stack with hot reload. ComfyUI runs natively on the Mac (scripts/run_comfyui.sh), because
+# containers can't use the Apple GPU; the backend reaches it at host.docker.internal.
+#
+# The backend and frontend run on the prebuilt video2text-demo images, which already have every
+# Python and npm package this app needs, so nothing new is downloaded or built.
+services:
+  db:
+    image: postgres:16-alpine
+    pull_policy: never
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: video2text-demo-backend:latest
+    pull_policy: never
+    working_dir: /app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app}
+      WATCHFILES_FORCE_POLLING: "true"
+      COMFYUI_URL: ${COMFYUI_URL:-http://host.docker.internal:8188}
+      ANIMATE_MODEL: ${ANIMATE_MODEL:-Wan2.2-Animate-14B-Q4_K_M.gguf}
+      DATA_DIR: /data
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./backend:/app
+      # Uploads, pose previews and results, one folder per job.
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: video2text-demo-frontend:latest
+    pull_policy: never
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+      VITE_USE_POLLING: "true"
+    ports:
+      - "5175:5173"
+    volumes:
+      - ./frontend:/app
+      # Keep the image's node_modules (React, MUI, Vite) instead of the empty host folder.
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

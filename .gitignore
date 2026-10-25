@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Native ComfyUI install + models (scripts/setup_comfyui.sh), and app uploads/outputs
+comfyui/
+data/
